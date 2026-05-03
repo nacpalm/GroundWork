@@ -590,7 +590,7 @@ canvas{width:100%!important;}
 <script>
 const App = (function(){
 
-const APP_VERSION = '0.9.0';
+const APP_VERSION = '0.9.1';
 
 // ── SPLIT ─────────────────────────────────────────────────────────────
 const DEFAULT_SPLIT = {
@@ -2170,11 +2170,15 @@ async function syncToCloud(){
   const authHeader = { 'Authorization': 'Bearer ' + SB_KEY };
 
   try{
-    // upsert all workouts
+    // upsert all workouts — use date-only (YYYY-MM-DD) as the uniqueness key
     for(const w of workouts){
-      const existing = await sbFetch(`workouts?user_id=eq.${user.id}&logged_at=eq.${encodeURIComponent(w.date)}&select=id`);
+      const dateOnly = w.date.split('T')[0];
+      const existing = await sbFetch(`workouts?user_id=eq.${user.id}&logged_at=gte.${dateOnly}T00:00:00.000Z&logged_at=lte.${dateOnly}T23:59:59.999Z&select=id`);
       if(!existing || !existing.length){
         await sbFetch('workouts', 'POST', { user_id: user.id, data: w, logged_at: w.date });
+      } else {
+        // update existing record with latest data
+        await sbFetch(`workouts?id=eq.${existing[0].id}`, 'PATCH', { data: w, logged_at: w.date });
       }
     }
     // upsert bodyweight
@@ -2205,12 +2209,19 @@ async function syncFromCloud(){
     // pull workouts
     const cloudWorkouts = await sbFetch(`workouts?user_id=eq.${user.id}&select=data,logged_at&order=logged_at.desc`);
     if(cloudWorkouts && cloudWorkouts.length){
-      const merged = cloudWorkouts.map(r => r.data);
-      // merge with local (cloud wins for same date)
+      const merged = cloudWorkouts.map(r => r.data).filter(Boolean);
+      // cloud wins for same date — merge with local-only entries
       const local = getWorkouts();
       const cloudDates = new Set(merged.map(w => new Date(w.date).toDateString()));
       const localOnly = local.filter(w => !cloudDates.has(new Date(w.date).toDateString()));
-      const all = [...merged, ...localOnly].sort((a,b)=>new Date(b.date)-new Date(a.date));
+      // deduplicate merged itself in case cloud has duplicates
+      const seen = new Set();
+      const deduped = [...merged, ...localOnly].filter(w => {
+        const key = new Date(w.date).toDateString();
+        if(seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+      const all = deduped.sort((a,b)=>new Date(b.date)-new Date(a.date));
       saveWorkouts(all);
     }
     // pull bodyweight
