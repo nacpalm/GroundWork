@@ -590,6 +590,8 @@ canvas{width:100%!important;}
 <script>
 const App = (function(){
 
+const APP_VERSION = '0.9.0';
+
 // ── SPLIT ─────────────────────────────────────────────────────────────
 const DEFAULT_SPLIT = {
   1:{name:'Monday',   focus:'Chest, Shoulders & Triceps', tag:'chest',
@@ -685,8 +687,9 @@ const DEFAULT_BANK = [
   {name:'Cross-Body Curls',muscle:'Biceps',similar:'Hammer Curls, Rope Curls'},
   {name:'Spider Curls',muscle:'Biceps',similar:'Preacher Curls, Incline DB Curls'},
   // GLUTES
-  {name:'Hip Thrust - Glute Bias',muscle:'Glutes',similar:'Glute Bridge, Cable Pull-Through'},
-  {name:'Barbell Hip Thrust',muscle:'Glutes',similar:'Hip Thrust, Glute Bridge'},
+  {name:'Hip Thrust - Glute Bias',muscle:'Glutes',similar:'Single Leg Hip Thrust, Glute Bridge, Cable Pull-Through'},
+  {name:'Single Leg Hip Thrust',muscle:'Glutes',similar:'Hip Thrust - Glute Bias, Barbell Hip Thrust'},
+  {name:'Barbell Hip Thrust',muscle:'Glutes',similar:'Single Leg Hip Thrust, Hip Thrust, Glute Bridge'},
   {name:'Glute Bridge',muscle:'Glutes',similar:'Hip Thrust, Cable Pull-Through'},
   {name:'Cable Pull-Through',muscle:'Glutes',similar:'Hip Thrust, Romanian Deadlift'},
   {name:'Glute Step Down (vertical shin)',muscle:'Glutes',similar:'Step-Ups, Bulgarian Split Squat'},
@@ -696,8 +699,10 @@ const DEFAULT_BANK = [
   {name:'Abductor Machine',muscle:'Glutes',similar:'Cable Kickbacks, Lateral Band Walk'},
   {name:'Lateral Band Walk',muscle:'Glutes',similar:'Abductor Machine, Clamshells'},
   // LEGS
-  {name:'Knee Extension | Single Leg (Machine)',muscle:'Legs',similar:'Leg Press, Hack Squat'},
-  {name:'Knee Flexion Machine | Single Leg',muscle:'Legs',similar:'Lying Leg Curl, Nordic Curl'},
+  {name:'Leg Extension (Machine)',muscle:'Legs',similar:'Single Leg Extension (Machine), Sissy Squat, Leg Press'},
+  {name:'Knee Extension | Single Leg (Machine)',muscle:'Legs',similar:'Leg Extension (Machine), Leg Press, Hack Squat'},
+  {name:'Hamstring Curl (Machine)',muscle:'Legs',similar:'Single Leg Hamstring Curl (Machine), Lying Leg Curl, Nordic Curl'},
+  {name:'Knee Flexion Machine | Single Leg',muscle:'Legs',similar:'Hamstring Curl (Machine), Lying Leg Curl, Nordic Curl'},
   {name:'Hamstring Bias RDL - Single Leg DB',muscle:'Legs',similar:'Romanian Deadlift, Good Mornings'},
   {name:'Heavy Calf Raises Single Leg',muscle:'Calves',similar:'Seated Calf Raise, Donkey Calf Raise'},
   {name:'Bulgarian and/or Front Foot Elevated Split Squats',muscle:'Legs',similar:'Lunges, Step-Ups'},
@@ -706,18 +711,23 @@ const DEFAULT_BANK = [
   {name:'Goblet Squat',muscle:'Legs',similar:'Front Squat, DB Squat'},
   {name:'Hack Squat',muscle:'Legs',similar:'Barbell Squat, Leg Press'},
   {name:'Leg Press',muscle:'Legs',similar:'Hack Squat, Barbell Squat'},
-  {name:'Romanian Deadlift',muscle:'Legs',similar:'Single Leg RDL, Good Mornings'},
+  {name:'Romanian Deadlift',muscle:'Legs',similar:'Single Leg RDL, Hamstring Bias RDL - Single Leg DB, Good Mornings'},
+  {name:'Single Leg RDL',muscle:'Legs',similar:'Romanian Deadlift, Hamstring Bias RDL - Single Leg DB, Good Mornings'},
   {name:'Lunges',muscle:'Legs',similar:'Bulgarian Split Squat, Step-Ups'},
   {name:'Walking Lunges',muscle:'Legs',similar:'Lunges, Bulgarian Split Squat'},
   {name:'Step-Ups',muscle:'Legs',similar:'Lunges, Glute Step Down'},
-  {name:'Lying Leg Curl',muscle:'Legs',similar:'Seated Leg Curl, Nordic Curl'},
-  {name:'Seated Leg Curl',muscle:'Legs',similar:'Lying Leg Curl, Nordic Curl'},
-  {name:'Leg Extension',muscle:'Legs',similar:'Single Leg Extension, Leg Press'},
+  {name:'Lying Leg Curl',muscle:'Legs',similar:'Single Leg Lying Curl, Seated Leg Curl, Nordic Curl'},
+  {name:'Single Leg Lying Curl',muscle:'Legs',similar:'Lying Leg Curl, Hamstring Curl (Machine), Nordic Curl'},
+  {name:'Seated Leg Curl',muscle:'Legs',similar:'Single Leg Seated Curl, Lying Leg Curl, Nordic Curl'},
+  {name:'Single Leg Seated Curl',muscle:'Legs',similar:'Seated Leg Curl, Lying Leg Curl, Nordic Curl'},
+  {name:'Leg Extension',muscle:'Legs',similar:'Leg Extension (Machine), Single Leg Extension, Leg Press'},
+  {name:'Single Leg Extension',muscle:'Legs',similar:'Leg Extension, Leg Extension (Machine), Leg Press'},
   {name:'Nordic Curl',muscle:'Legs',similar:'Lying Leg Curl, Romanian Deadlift'},
   {name:'Sissy Squat',muscle:'Legs',similar:'Leg Extension, Front Squat'},
   // CALVES
-  {name:'Seated Calf Raise',muscle:'Calves',similar:'Standing Calf Raise, Donkey Calf Raise'},
-  {name:'Standing Calf Raise',muscle:'Calves',similar:'Seated Calf Raise, Single Leg Calf Raise'},
+  {name:'Seated Calf Raise',muscle:'Calves',similar:'Single Leg Seated Calf Raise, Standing Calf Raise, Donkey Calf Raise'},
+  {name:'Single Leg Seated Calf Raise',muscle:'Calves',similar:'Seated Calf Raise, Heavy Calf Raises Single Leg'},
+  {name:'Standing Calf Raise',muscle:'Calves',similar:'Heavy Calf Raises Single Leg, Seated Calf Raise, Donkey Calf Raise'},
   {name:'Donkey Calf Raise',muscle:'Calves',similar:'Standing Calf Raise, Seated Calf Raise'},
   {name:'Leg Press Calf Raise',muscle:'Calves',similar:'Standing Calf Raise, Seated Calf Raise'},
   // CORE
@@ -1958,6 +1968,9 @@ function renderSettings(){
           <button onclick="App.importBackup()" style="padding:8px 16px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);border-radius:var(--r-xs);font-size:13px;font-weight:700;flex-shrink:0;">Import</button>
         </div>
       </div>
+    </div>
+    <div style="padding:24px 16px 8px;text-align:center;">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.4px;">GROUNDWORK v${APP_VERSION}</div>
     </div>`;
   applyTheme();
 }
@@ -2636,10 +2649,10 @@ const MILESTONE_DEFS = [
     getValue(wks){ return getExPR(wks,['Leg Press']); } },
   { id:'pr_calf',    cat:'Lift PRs', name:'Single Leg Calf Raise',
     tiers:[25,45,70,90,115,135,160,185], unit:'lbs', fmt:v=>v+' lbs',
-    getValue(wks){ return getExPR(wks,['Heavy Calf Raises Single Leg','Seated Calf Raise','Standing Calf Raise']); } },
+    getValue(wks){ return getExPR(wks,['Heavy Calf Raises Single Leg','Single Leg Seated Calf Raise']); } },
   { id:'pr_rdl',     cat:'Lift PRs', name:'Romanian Deadlift',
     tiers:[95,135,185,225,275,315,365,405], unit:'lbs', fmt:v=>v+' lbs',
-    getValue(wks){ return getExPR(wks,['Romanian Deadlift','Hamstring Bias RDL - Single Leg DB']); } },
+    getValue(wks){ return getExPR(wks,['Romanian Deadlift','Single Leg RDL','Hamstring Bias RDL - Single Leg DB']); } },
 ];
 
 function getExPR(wks, exNames){
@@ -2714,8 +2727,7 @@ function showMilestoneToast(){
 }
 
 function animateMilestoneCard(card, color){
-  console.log('animateMilestoneCard called', card?.id, color);
-  if(!card){ console.warn('card is null'); return; }
+  if(!card) return;
   card.style.transition='transform .15s, box-shadow .15s';
   // step 1: scale up + glow
   card.style.transform='scale(1.06)';
@@ -2797,10 +2809,8 @@ function renderMilestones(){
 
   // fire pending animations — cards are now in the DOM
   if(_pendingMilestoneAnims.length){
-    console.log('Draining pending milestone anims:', _pendingMilestoneAnims);
     _pendingMilestoneAnims.forEach(({id,tierIdx})=>{
       const card=document.getElementById('ms-'+id);
-      console.log('Animating card', id, card, tierIdx);
       if(!card) return;
       const color=APEX_TIERS[tierIdx]?APEX_TIERS[tierIdx].color:'#ffffff';
       setTimeout(()=>animateMilestoneCard(card,color), 80);
@@ -2808,24 +2818,6 @@ function renderMilestones(){
     _pendingMilestoneAnims=[];
   }
 
-  // ── TEST BUTTON (dev only) ──
-  const testBtn=document.createElement('button');
-  testBtn.textContent='🧪 Test Animation';
-  testBtn.style.cssText='display:block;margin:8px 16px;padding:10px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-weight:700;color:var(--text2);width:calc(100% - 32px);';
-  testBtn.onclick=()=>{
-    const cards=document.querySelectorAll('.ms-card.unlocked');
-    console.log('Test: found', cards.length, 'unlocked cards');
-    if(cards.length){
-      const card=cards[0];
-      const color=card.style.getPropertyValue('--ms-color')||'#ffd700';
-      console.log('Test animating:', card.id, 'color:', color);
-      animateMilestoneCard(card, color);
-      showMilestoneToast();
-    } else {
-      alert('No unlocked cards found. Log a workout first.');
-    }
-  };
-  body.appendChild(testBtn);
 }
 
 function openMilestoneTiers(defId){
