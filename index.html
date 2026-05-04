@@ -316,6 +316,33 @@ canvas{width:100%!important;}
 .empty-state svg{width:36px;height:36px;stroke:currentColor;fill:none;stroke-width:1.5;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;}
 .empty-state p{font-size:14px;}
 
+/* ── PROFILE ── */
+.profile-header{padding:20px 20px 0;display:flex;align-items:center;gap:14px;}
+.profile-avatar-lg{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:#fff;flex-shrink:0;}
+.profile-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
+.profile-bio{font-size:13px;color:var(--text3);margin-top:3px;line-height:1.4;}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 20px;}
+.profile-stat{background:var(--bg3);border-radius:var(--r-xs);padding:10px 8px;text-align:center;}
+.profile-stat-v{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;}
+.profile-stat-l{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;margin-top:2px;}
+.profile-section-hd{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:4px 20px 8px;}
+.profile-ms-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 20px 12px;}
+.profile-ms-card{background:var(--bg3);border-radius:var(--r-xs);padding:10px 8px;text-align:center;border:1px solid var(--border);}
+.profile-ms-trophy{font-size:22px;line-height:1;margin-bottom:4px;}
+.profile-ms-name{font-size:10px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:2px;}
+.profile-ms-tier{font-size:10px;font-weight:800;}
+.profile-pr-row{display:flex;justify-content:space-between;align-items:center;padding:9px 20px;border-bottom:1px solid var(--border);}
+.profile-pr-row:last-child{border-bottom:none;}
+.profile-pr-name{font-size:13px;font-weight:600;}
+.profile-pr-val{font-size:13px;font-weight:800;}
+/* edit profile */
+.colour-swatch{width:32px;height:32px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:border-color .15s,transform .15s;flex-shrink:0;}
+.colour-swatch.selected{border-color:#fff;transform:scale(1.15);}
+/* social header profile button */
+.social-header{display:flex;justify-content:space-between;align-items:center;padding:calc(var(--st) + 14px) 16px 0;}
+.social-header h1{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
+.my-profile-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:#fff;border:none;cursor:pointer;flex-shrink:0;}
+
 /* ── EX CARD SWIPE DELETE ── */
 .ex-card-wrap{position:relative;margin-bottom:12px;border-radius:var(--r);overflow:hidden;}
 .ex-card-wrap .ex-card{margin-bottom:0;position:relative;z-index:1;transition:transform .2s;}
@@ -429,10 +456,16 @@ canvas{width:100%!important;}
 
 <!-- Service Worker registration + auto-update -->
 <script>
-if('serviceWorker' in navigator){
+if('serviceWorker' in navigator && location.hostname !== 'www.claudeusercontent.com'){
   window.addEventListener('load', async () => {
     try{
-      const reg = await navigator.serviceWorker.register('./sw.js');
+      // updateViaCache:'none' tells browser never to serve sw.js from HTTP cache
+      const reg = await navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'});
+
+      // show banner for any worker already waiting (e.g. user had tab open)
+      if(reg.waiting) showUpdateBanner(reg.waiting);
+
+      // listen for a new SW found during this session
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -441,9 +474,14 @@ if('serviceWorker' in navigator){
           }
         });
       });
-      if(reg.waiting) showUpdateBanner(reg.waiting);
+
+      // force update check on every load — don't wait 24h
+      reg.update().catch(()=>{});
+
     } catch(e){ console.warn('SW registration failed:', e); }
   });
+
+  // once new SW takes control, reload to get fresh assets
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if(!refreshing){ refreshing = true; window.location.reload(); }
@@ -488,9 +526,12 @@ function showUpdateBanner(worker){
   <div class="page-header">
     <div class="ph-row">
       <h1>Social</h1>
-      <button class="icon-btn" id="social-add-btn" onclick="App.openAddFriend()" title="Add friend">
-        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-      </button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="my-profile-nav-btn" class="my-profile-btn" onclick="App.openMyProfile()" style="background:#666;display:none;" title="My Profile">?</button>
+        <button class="icon-btn" id="social-add-btn" onclick="App.openAddFriend()" title="Add friend">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        </button>
+      </div>
     </div>
   </div>
   <div id="social-body" style="padding-top:12px;"></div>
@@ -632,7 +673,7 @@ function showUpdateBanner(worker){
 <script>
 const App = (function(){
 
-const APP_VERSION = '0.9.3';
+const APP_VERSION = '0.9.6';
 
 // ── SPLIT ─────────────────────────────────────────────────────────────
 const DEFAULT_SPLIT = {
@@ -2377,7 +2418,10 @@ async function renderSocial(){
       // get their recent workouts
       for(const u of (users||[])){
         const wks = await sbFetch(`workouts?user_id=eq.${u.id}&select=data,logged_at&order=logged_at.desc&limit=10`);
-        friendsData.push({ ...u, workouts: (wks||[]).map(r=>r.data) });
+        // fetch their profile data too
+        const profileRow = await sbFetch(`users?id=eq.${u.id}&select=profile`).catch(()=>[]);
+        const profile = (profileRow&&profileRow[0]&&profileRow[0].profile)||{};
+        friendsData.push({ ...u, workouts: (wks||[]).map(r=>r.data), profile });
       }
     }
 
@@ -2470,6 +2514,16 @@ async function renderSocial(){
 
     const lastSync = localStorage.getItem('il_last_sync');
     const syncAgo = lastSync ? fmtDate(lastSync) : 'never';
+
+    // show profile button
+    const profileBtn = document.getElementById('my-profile-nav-btn');
+    if(profileBtn){
+      const myProfile = getProfile();
+      profileBtn.style.background = myProfile.colour||'#e8ff47';
+      profileBtn.style.color = '#000';
+      profileBtn.textContent = user.username[0].toUpperCase();
+      profileBtn.style.display = 'flex';
+    }
 
     body.innerHTML = `
       <div class="sync-banner">
@@ -2582,6 +2636,214 @@ async function doSync(){
   renderSocial();
 }
 
+// ── PROFILE ────────────────────────────────────────────────────────────
+
+const PROFILE_COLOURS = [
+  '#ff4655','#ff6b35','#ffd700','#e8ff47','#00c2c7',
+  '#4ade80','#60a5fa','#a78bfa','#f472b6','#ffffff',
+  '#cd7f32','#a8a9ad','#9b59b6','#b9f2ff','#8b7355',
+];
+
+function getProfile(){ return JSON.parse(localStorage.getItem('il_profile')||'{}'); }
+function saveProfile_data(p){ localStorage.setItem('il_profile',JSON.stringify(p)); }
+
+function buildProfileHTML(username, profile, workouts, bw, isOwnProfile=false){
+  const colour = profile.colour||'#e8ff47';
+  const bio = profile.bio||'';
+  const totalVol = workouts.reduce((s,w)=>s+(w.totalVolume||0),0);
+  const totalSets = workouts.reduce((s,w)=>s+(w.totalSets||0),0);
+
+  // stats row
+  const statsHTML = `<div class="profile-stats">
+    <div class="profile-stat"><div class="profile-stat-v">${workouts.length}</div><div class="profile-stat-l">Workouts</div></div>
+    <div class="profile-stat"><div class="profile-stat-v">${totalSets}</div><div class="profile-stat-l">Sets</div></div>
+    <div class="profile-stat"><div class="profile-stat-v">${totalVol>=1000?(totalVol/1000).toFixed(0)+'k':totalVol}</div><div class="profile-stat-l">Vol (${S.unit})</div></div>
+  </div>`;
+
+  // selected milestones
+  let msHTML = '';
+  const selectedMs = profile.milestones||[];
+  if(selectedMs.length){
+    const persisted = getMilestonePersisted();
+    const msCards = selectedMs.map(defId=>{
+      const def = MILESTONE_DEFS.find(d=>d.id===defId); if(!def) return '';
+      const tierIdx = persisted[defId]??-1; if(tierIdx<0) return '';
+      const tier = APEX_TIERS[tierIdx];
+      return `<div class="profile-ms-card" style="border-color:${tier.color};">
+        <div class="profile-ms-trophy" style="color:${tier.color};filter:drop-shadow(0 0 4px ${tier.color});">🏆</div>
+        <div class="profile-ms-name">${def.name}</div>
+        <div class="profile-ms-tier" style="color:${tier.color};">${tier.name}</div>
+      </div>`;
+    }).filter(Boolean).join('');
+    if(msCards) msHTML = `<div class="profile-section-hd">Milestones</div><div class="profile-ms-grid">${msCards}</div>`;
+  }
+
+  // selected PRs
+  let prHTML = '';
+  const selectedPRs = profile.prs||[];
+  if(selectedPRs.length){
+    const prRows = selectedPRs.map(exName=>{
+      let best=0;
+      workouts.forEach(w=>(w.exercises||[]).filter(e=>e.name===exName).forEach(ex=>(ex.sets||[]).filter(s=>s.done).forEach(s=>{
+        const v=toDefault(s.weight,s.unit||w.unit||S.unit); if(v>best) best=v;
+      })));
+      if(!best) return '';
+      return `<div class="profile-pr-row">
+        <span class="profile-pr-name">${exName}</span>
+        <span class="profile-pr-val" style="color:${colour};">${best} ${S.unit}</span>
+      </div>`;
+    }).filter(Boolean).join('');
+    if(prRows) prHTML = `<div class="profile-section-hd">PRs</div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin:0 20px 12px;overflow:hidden;">${prRows}</div>`;
+  }
+
+  return `
+    <div class="profile-header">
+      <div class="profile-avatar-lg" style="background:${colour};">${username[0].toUpperCase()}</div>
+      <div>
+        <div class="profile-name">@${username}</div>
+        ${bio?`<div class="profile-bio">${bio}</div>`:''}
+      </div>
+    </div>
+    ${statsHTML}
+    ${msHTML}
+    ${prHTML}
+    ${!msHTML&&!prHTML?`<div style="padding:20px;text-align:center;font-size:13px;color:var(--text3);">${isOwnProfile?'Tap Edit to choose milestones and PRs to showcase.':'Nothing showcased yet.'}</div>`:''}`;
+}
+
+function openMyProfile(){
+  const user = getCloudUser();
+  if(!user){ openAuthOverlay(); return; }
+  const profile = getProfile();
+  const colour = profile.colour||'#e8ff47';
+  // update header button colour
+  const btn = document.getElementById('my-profile-nav-btn');
+  if(btn){ btn.style.background=colour; }
+  const wks = getWorkouts();
+  const bw = getBW();
+  document.getElementById('my-profile-body').innerHTML = buildProfileHTML(user.username, profile, wks, bw, true);
+  document.getElementById('ov-my-profile').classList.add('open');
+}
+
+function openEditProfile(){
+  const user = getCloudUser(); if(!user) return;
+  const profile = getProfile();
+  const wks = getWorkouts();
+  const persisted = getMilestonePersisted();
+
+  // all unlocked milestones
+  const unlockedMs = MILESTONE_DEFS.filter(d=>(persisted[d.id]??-1)>=0);
+
+  // all PRs the user has logged
+  const exNames = [...new Set(wks.flatMap(w=>(w.exercises||[]).map(e=>e.name)))].sort();
+
+  const selectedMs = profile.milestones||[];
+  const selectedPRs = profile.prs||[];
+  const colour = profile.colour||'#e8ff47';
+
+  const colourSwatches = PROFILE_COLOURS.map(c=>
+    `<div class="colour-swatch${c===colour?' selected':''}" style="background:${c};" onclick="App._editSelectColour('${c}',this)"></div>`
+  ).join('');
+
+  const msCheckboxes = unlockedMs.map(def=>{
+    const tierIdx = persisted[def.id];
+    const tier = APEX_TIERS[tierIdx];
+    const checked = selectedMs.includes(def.id);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" data-ms="${def.id}" ${checked?'checked':''} onchange="App._editToggleMs('${def.id}',this.checked)"
+        style="width:18px;height:18px;accent-color:${tier.color};flex-shrink:0;"/>
+      <span style="font-size:13px;font-weight:600;flex:1;">${def.name}</span>
+      <span style="font-size:11px;font-weight:800;color:${tier.color};">${tier.name}</span>
+    </label>`;
+  }).join('') || '<div style="font-size:13px;color:var(--text3);padding:8px 0;">No milestones unlocked yet.</div>';
+
+  const prCheckboxes = exNames.map(name=>{
+    const checked = selectedPRs.includes(name);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" data-pr="${name}" ${checked?'checked':''} onchange="App._editTogglePR('${name}',this.checked)"
+        style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;"/>
+      <span style="font-size:13px;font-weight:600;">${name}</span>
+    </label>`;
+  }).join('') || '<div style="font-size:13px;color:var(--text3);padding:8px 0;">No workouts logged yet.</div>';
+
+  document.getElementById('edit-profile-body').innerHTML = `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px;">Bio <span style="font-weight:400;text-transform:none;font-size:11px;">(max 100 chars)</span></div>
+      <textarea id="edit-bio-inp" maxlength="100" placeholder="Short tagline about you..."
+        style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-xs);padding:10px 12px;font-size:14px;color:var(--text);outline:none;resize:none;height:64px;font-family:inherit;">${profile.bio||''}</textarea>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px;">Profile Colour</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;" id="colour-swatches">${colourSwatches}</div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
+        <label style="font-size:12px;color:var(--text3);font-weight:600;">Custom:</label>
+        <input type="color" id="edit-colour-custom" value="${colour}"
+          oninput="App._editSelectColour(this.value,null)"
+          style="width:40px;height:32px;border:1px solid var(--border2);border-radius:6px;cursor:pointer;background:none;padding:2px;"/>
+      </div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px;">Showcase Milestones <span style="font-weight:400;text-transform:none;font-size:11px;">(max 3)</span></div>
+      <div id="edit-ms-list">${msCheckboxes}</div>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px;">Showcase PRs <span style="font-weight:400;text-transform:none;font-size:11px;">(max 3)</span></div>
+      <div id="edit-pr-list">${prCheckboxes}</div>
+    </div>`;
+
+  // store draft
+  S._editProfileDraft = { bio: profile.bio||'', colour, milestones:[...selectedMs], prs:[...selectedPRs] };
+  document.getElementById('ov-edit-profile').classList.add('open');
+}
+
+function _editSelectColour(colour, swatchEl){
+  if(!S._editProfileDraft) return;
+  S._editProfileDraft.colour = colour;
+  // update all swatches
+  document.querySelectorAll('.colour-swatch').forEach(s=>s.classList.remove('selected'));
+  if(swatchEl) swatchEl.classList.add('selected');
+  const custom = document.getElementById('edit-colour-custom');
+  if(custom) custom.value = colour;
+}
+
+function _editToggleMs(defId, checked){
+  if(!S._editProfileDraft) return;
+  const arr = S._editProfileDraft.milestones;
+  if(checked){
+    if(arr.length>=3){ alert('Maximum 3 milestones allowed.'); return false; }
+    arr.push(defId);
+  } else {
+    const idx=arr.indexOf(defId); if(idx>=0) arr.splice(idx,1);
+  }
+}
+
+function _editTogglePR(name, checked){
+  if(!S._editProfileDraft) return;
+  const arr = S._editProfileDraft.prs;
+  if(checked){
+    if(arr.length>=3){ alert('Maximum 3 PRs allowed.'); return false; }
+    arr.push(name);
+  } else {
+    const idx=arr.indexOf(name); if(idx>=0) arr.splice(idx,1);
+  }
+}
+
+function saveProfile(){
+  if(!S._editProfileDraft) return;
+  const bio = document.getElementById('edit-bio-inp')?.value.trim().slice(0,100)||'';
+  S._editProfileDraft.bio = bio;
+  saveProfile_data(S._editProfileDraft);
+  // update profile button colour
+  const btn = document.getElementById('my-profile-nav-btn');
+  if(btn) btn.style.background = S._editProfileDraft.colour;
+  // sync profile to cloud
+  const user = getCloudUser();
+  if(user) sbFetch(`users?id=eq.${user.id}`, 'PATCH', { profile: S._editProfileDraft }).catch(()=>{});
+  closeOv('ov-edit-profile');
+  // refresh my profile view
+  const wks = getWorkouts();
+  document.getElementById('my-profile-body').innerHTML = buildProfileHTML(user.username, S._editProfileDraft, wks, getBW(), true);
+}
+
 function toggleLike(likeKey, btn){
   const meKey=likeKey+'_me';
   const already=localStorage.getItem(meKey)==='1';
@@ -2611,59 +2873,9 @@ function toggleLike(likeKey, btn){
 function openFriendProfile(fi){
   const f=window._friendsData&&window._friendsData[fi];
   if(!f) return;
-  const wks=f.workouts||[];
-  // compute stats
-  const totalVol=wks.reduce((s,w)=>s+(w.totalVolume||0),0);
-  const totalSets=wks.reduce((s,w)=>s+(w.totalSets||0),0);
-  const exNames=[...new Set(wks.flatMap(w=>(w.exercises||[]).map(e=>e.name)))];
-  // PRs
-  const prs=exNames.map(name=>{
-    let best=0;
-    wks.forEach(w=>(w.exercises||[]).filter(e=>e.name===name).forEach(ex=>(ex.sets||[]).filter(s=>s.done).forEach(s=>{
-      const v=parseFloat(s.weight)||0; if(v>best) best=v;
-    })));
-    return best?{name,best}:null;
-  }).filter(Boolean).sort((a,b)=>b.best-a.best).slice(0,5);
-
-  // recent workouts
-  const recentHTML=wks.slice(0,5).map(w=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div>
-        <div style="font-size:13px;font-weight:700;">${w.day}</div>
-        <div style="font-size:11px;color:var(--text3);">${fmtDate(w.date)}</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:13px;font-weight:700;">${w.totalSets||0} sets</div>
-        <div style="font-size:11px;color:var(--text3);">${(w.totalVolume||0).toLocaleString()} ${w.unit||S.unit}</div>
-      </div>
-    </div>`).join('');
-
-  const prHTML=prs.length?prs.map(p=>`
-    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
-      <span style="font-weight:600;">${p.name}</span>
-      <span style="font-weight:800;color:var(--green);">${p.best} ${S.unit}</span>
-    </div>`).join(''):'<div style="font-size:13px;color:var(--text3);padding:8px 0;">No PR data yet.</div>';
-
-  document.getElementById('fp-title').textContent='@'+f.username;
-  document.getElementById('fp-body').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
-      <div style="background:var(--bg3);border-radius:var(--r-xs);padding:12px 8px;text-align:center;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;">${wks.length}</div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;margin-top:2px;">Workouts</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:var(--r-xs);padding:12px 8px;text-align:center;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;">${totalSets}</div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;margin-top:2px;">Sets</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:var(--r-xs);padding:12px 8px;text-align:center;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;">${totalVol>=1000?(totalVol/1000).toFixed(0)+'k':totalVol}</div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;margin-top:2px;">Vol (${S.unit})</div>
-      </div>
-    </div>
-    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;">Top PRs</div>
-    <div style="margin-bottom:16px;">${prHTML}</div>
-    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;">Recent Workouts</div>
-    <div>${recentHTML}</div>`;
+  const profile = f.profile||{};
+  document.getElementById('fp-username').textContent='@'+f.username;
+  document.getElementById('fp-body').innerHTML = buildProfileHTML(f.username, profile, f.workouts||[], [], false);
   document.getElementById('ov-friend-profile').classList.add('open');
 }
 
@@ -3415,7 +3627,7 @@ function generatePDF(weekStartTs){
 }
 
 return {
-  nav,toggleTheme,toggleThemeChk,setUnit,setDistUnit,goToBW,logBW,logBWProgress,deleteBW,deleteBWProgress,exportBackup,restoreAutoBackup,importBackup,saveName,openWeekPicker,generatePDF,doSwapByIdx,addFromBankIdx,openAuthOverlay,switchAuthTab,doLogin,doRegister,doLogout,doSync,renderSocial,openAddFriend,searchFriend,sendFriendReq,acceptFriend,showFriendWorkout,toggleLike,openFriendProfile,shiftWeek,browseDay,returnToToday,openSchedule,renderScheduleList,schedDragStart,schedDragOver,schedDrop,schedDragEnd,toggleSchedDay,openEditDay,saveEditDay,saveSchedule,renderMilestones,openMilestoneTiers,toggleHistorySection,
+  nav,toggleTheme,toggleThemeChk,setUnit,setDistUnit,goToBW,logBW,logBWProgress,deleteBW,deleteBWProgress,exportBackup,restoreAutoBackup,importBackup,saveName,openWeekPicker,generatePDF,doSwapByIdx,addFromBankIdx,openAuthOverlay,switchAuthTab,doLogin,doRegister,doLogout,doSync,renderSocial,openAddFriend,searchFriend,sendFriendReq,acceptFriend,showFriendWorkout,toggleLike,openFriendProfile,openMyProfile,openEditProfile,saveProfile,_editSelectColour,_editToggleMs,_editTogglePR,shiftWeek,browseDay,returnToToday,openSchedule,renderScheduleList,schedDragStart,schedDragOver,schedDrop,schedDragEnd,toggleSchedDay,openEditDay,saveEditDay,saveSchedule,renderMilestones,openMilestoneTiers,toggleHistorySection,
   renderToday,updSet,toggleDone,addSet,delSet,setExUnit,logWorkout,removeExCard,
   addCardioItem,updCardio,toggleCardioDone,removeCardioItem,
   openAFB,filterAFB,addFromBank,setAFBFilter,openAddExFromAFB,openAddExFromSwap,
@@ -3428,15 +3640,44 @@ return {
 })();
 </script>
 
-<!-- FRIEND PROFILE SHEET -->
-<div class="overlay" id="ov-friend-profile">
-  <div class="sheet" style="max-height:92vh;">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title" id="fp-title">Profile</div>
-    <div id="fp-body" style="padding:16px 20px;overflow-y:auto;"></div>
-    <div style="padding:4px 20px 0;">
-      <button class="sheet-cancel" onclick="App.closeOv('ov-friend-profile')">Close</button>
+<!-- MY PROFILE OVERLAY -->
+<div class="overlay" id="ov-my-profile" style="align-items:stretch;">
+  <div style="background:var(--bg);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:calc(var(--st) + 14px) 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+      <button onclick="App.closeOv('ov-my-profile')" style="width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0;">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;">My Profile</div>
+      <button onclick="App.openEditProfile()" style="font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--r-xs);padding:6px 12px;cursor:pointer;">Edit</button>
     </div>
+    <div id="my-profile-body" style="flex:1;overflow-y:auto;padding-bottom:20px;"></div>
+  </div>
+</div>
+
+<!-- EDIT PROFILE OVERLAY -->
+<div class="overlay" id="ov-edit-profile" style="align-items:stretch;">
+  <div style="background:var(--bg);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:calc(var(--st) + 14px) 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+      <button onclick="App.closeOv('ov-edit-profile')" style="width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0;">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;">Edit Profile</div>
+      <button onclick="App.saveProfile()" style="font-size:12px;font-weight:700;color:var(--hi-text);background:var(--accent);border:1px solid var(--accent);border-radius:var(--r-xs);padding:6px 12px;cursor:pointer;">Save</button>
+    </div>
+    <div id="edit-profile-body" style="flex:1;overflow-y:auto;padding:20px 16px 40px;"></div>
+  </div>
+</div>
+
+<!-- FRIEND PROFILE OVERLAY -->
+<div class="overlay" id="ov-friend-profile" style="align-items:stretch;">
+  <div style="background:var(--bg);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:calc(var(--st) + 14px) 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+      <button onclick="App.closeOv('ov-friend-profile')" style="width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0;">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="fp-username" style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;">Profile</div>
+    </div>
+    <div id="fp-body" style="flex:1;overflow-y:auto;padding-bottom:20px;"></div>
   </div>
 </div>
 
