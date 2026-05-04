@@ -673,7 +673,7 @@ function showUpdateBanner(worker){
 <script>
 const App = (function(){
 
-const APP_VERSION = '0.9.6';
+const APP_VERSION = '0.9.7';
 
 // ── SPLIT ─────────────────────────────────────────────────────────────
 const DEFAULT_SPLIT = {
@@ -2667,7 +2667,10 @@ function buildProfileHTML(username, profile, workouts, bw, isOwnProfile=false){
     const persisted = getMilestonePersisted();
     const msCards = selectedMs.map(defId=>{
       const def = MILESTONE_DEFS.find(d=>d.id===defId); if(!def) return '';
-      const tierIdx = persisted[defId]??-1; if(tierIdx<0) return '';
+      // compute live in case persisted cache is stale
+      const liveVal = def.getValue(workouts, bw);
+      const tierIdx = getUnlockedTierIdx(def, liveVal);
+      if(tierIdx < 0) return '';
       const tier = APEX_TIERS[tierIdx];
       return `<div class="profile-ms-card" style="border-color:${tier.color};">
         <div class="profile-ms-trophy" style="color:${tier.color};filter:drop-shadow(0 0 4px ${tier.color});">🏆</div>
@@ -2728,14 +2731,22 @@ function openEditProfile(){
   const user = getCloudUser(); if(!user) return;
   const profile = getProfile();
   const wks = getWorkouts();
+  const bw = getBW();
   const persisted = getMilestonePersisted();
 
-  // all unlocked milestones
-  const unlockedMs = MILESTONE_DEFS.filter(d=>(persisted[d.id]??-1)>=0);
+  // compute unlocked milestones live from workout data
+  const unlockedMs = MILESTONE_DEFS.filter(def=>{
+    const val = def.getValue(wks, bw);
+    const tierIdx = getUnlockedTierIdx(def, val);
+    if(tierIdx >= 0 && (persisted[def.id]??-1) < tierIdx){
+      persisted[def.id] = tierIdx; // update cache while we're here
+    }
+    return tierIdx >= 0;
+  });
+  saveMilestonePersisted(persisted);
 
   // all PRs the user has logged
   const exNames = [...new Set(wks.flatMap(w=>(w.exercises||[]).map(e=>e.name)))].sort();
-
   const selectedMs = profile.milestones||[];
   const selectedPRs = profile.prs||[];
   const colour = profile.colour||'#e8ff47';

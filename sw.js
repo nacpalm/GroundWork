@@ -1,6 +1,6 @@
 // ── GROUNDWORK Service Worker ──────────────────────────────────────────
 // Bump CACHE_VERSION on every deploy — must match APP_VERSION in index.html
-const CACHE_VERSION = '0.9.6';
+const CACHE_VERSION = '0.9.7';
 const CACHE_NAME = `groundwork-${CACHE_VERSION}`;
 
 const CORE_ASSETS = [
