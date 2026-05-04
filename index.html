@@ -199,6 +199,15 @@ input[type=number]::-webkit-inner-spin-button{opacity:.5;}
 .ex-picker{width:100%;padding:10px 36px 10px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-xs);font-size:14px;color:var(--text);outline:none;appearance:none;}
 .ex-picker-arrow{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text3);}
 .ex-picker-arrow svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;}
+.str-search-wrap{position:relative;margin-bottom:10px;}
+.str-dropdown{position:relative;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-xs);max-height:200px;overflow-y:auto;margin-bottom:6px;z-index:10;}
+.str-dropdown-item{padding:10px 14px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border);}
+.str-dropdown-item:last-child{border-bottom:none;}
+.str-dropdown-item:hover,.str-dropdown-item:active{background:var(--bg4);}
+.str-dropdown-empty{padding:10px 14px;font-size:13px;color:var(--text3);}
+.str-selected{display:flex;align-items:center;justify-content:space-between;background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--r-xs);padding:9px 12px;margin-bottom:6px;}
+.str-selected-name{font-size:13px;font-weight:700;color:var(--accent);}
+.str-selected-clear{font-size:18px;color:var(--accent);cursor:pointer;line-height:1;background:none;border:none;padding:0;}
 canvas{width:100%!important;}
 .section-hd{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);padding:16px 16px 8px;}
 
@@ -623,7 +632,7 @@ function showUpdateBanner(worker){
 <script>
 const App = (function(){
 
-const APP_VERSION = '0.9.2';
+const APP_VERSION = '0.9.3';
 
 // ── SPLIT ─────────────────────────────────────────────────────────────
 const DEFAULT_SPLIT = {
@@ -1639,12 +1648,17 @@ function renderProgress(){
 
     <div class="chart-card">
       <h3>Strength Progress</h3>
-      <p>Tap an exercise to chart your best set per session</p>
-      <div class="ex-picker-wrap">
-        <select class="ex-picker" id="str-pick" onchange="App.updateStrengthChart(this.value)">
-          <option value="">Select exercise ▾</option>${exOptions}
-        </select>
-        <span class="ex-picker-arrow"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      <p>Search an exercise to chart your best set per session</p>
+      <div class="str-search-wrap" id="str-search-wrap">
+        <div class="search-wrap" style="margin:0 0 6px;">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="str-search-inp" placeholder="Search exercises..."
+            oninput="App.filterStrSearch(this.value)"
+            onfocus="App.openStrDropdown()"
+            autocomplete="off" autocorrect="off" spellcheck="false"/>
+        </div>
+        <div id="str-dropdown" class="str-dropdown" style="display:none;"></div>
+        <div id="str-selected" class="str-selected" style="display:none;"></div>
       </div>
       <canvas id="str-chart" height="160"></canvas>
     </div>
@@ -1695,6 +1709,7 @@ function renderProgress(){
 
   // store PRs for filtering
   S._allPRs = allPRs;
+  S._strExNames = exNames;
   S._historyOpen = S._historyOpen || false;
   S.prSearch=''; S.prDayFilter='All';
   renderPRDayChips();
@@ -1742,6 +1757,56 @@ function renderWoWChart(thisWk,lastWk){
     ]},
     options:{responsive:true,plugins:{legend:{labels:{color:tc,font:{size:11},boxWidth:12}}},
       scales:{x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},y:{ticks:{color:tc,font:{size:11}},grid:{color:gc}}}}});
+}
+
+function filterStrSearch(q){
+  const exNames=S._strExNames||[];
+  const dropdown=document.getElementById('str-dropdown');
+  if(!dropdown) return;
+  const filtered=q.trim()
+    ? exNames.filter(n=>n.toLowerCase().includes(q.toLowerCase()))
+    : exNames;
+  if(!filtered.length){
+    dropdown.innerHTML='<div class="str-dropdown-empty">No exercises found</div>';
+  } else {
+    dropdown.innerHTML=filtered.map(n=>
+      `<div class="str-dropdown-item" onclick="App.selectStrExercise('${n.replace(/'/g,"\\'")}')">
+        ${n}
+      </div>`
+    ).join('');
+  }
+  dropdown.style.display='';
+}
+
+function openStrDropdown(){
+  filterStrSearch(document.getElementById('str-search-inp')?.value||'');
+}
+
+function selectStrExercise(name){
+  // hide dropdown, show selected pill, clear input
+  const dropdown=document.getElementById('str-dropdown');
+  const selected=document.getElementById('str-selected');
+  const inp=document.getElementById('str-search-inp');
+  if(dropdown) dropdown.style.display='none';
+  if(inp) inp.value='';
+  if(selected){
+    selected.style.display='flex';
+    selected.innerHTML=`<span class="str-selected-name">📈 ${name}</span>
+      <button class="str-selected-clear" onclick="App.clearStrExercise()">×</button>`;
+  }
+  updateStrengthChart(name);
+  // dismiss keyboard on mobile
+  if(inp) inp.blur();
+}
+
+function clearStrExercise(){
+  const selected=document.getElementById('str-selected');
+  const dropdown=document.getElementById('str-dropdown');
+  if(selected) selected.style.display='none';
+  if(dropdown) dropdown.style.display='none';
+  if(S.charts.str){ S.charts.str.destroy(); S.charts.str=null; }
+  const ctx=document.getElementById('str-chart');
+  if(ctx){ const c=ctx.getContext('2d'); c.clearRect(0,0,ctx.width,ctx.height); }
 }
 
 function updateStrengthChart(exName){
@@ -2889,6 +2954,15 @@ function openMilestoneTiers(defId){
   document.getElementById('ov-ms-tiers').classList.add('open');
 }
 // ── INIT ──────────────────────────────────────────────────────────────
+// close strength search dropdown when tapping outside
+document.addEventListener('click', e=>{
+  const wrap=document.getElementById('str-search-wrap');
+  if(wrap && !wrap.contains(e.target)){
+    const dd=document.getElementById('str-dropdown');
+    if(dd) dd.style.display='none';
+  }
+});
+
 applyTheme(); renderToday();
 
 function autoBackup(){
@@ -3347,7 +3421,7 @@ return {
   openAFB,filterAFB,addFromBank,setAFBFilter,openAddExFromAFB,openAddExFromSwap,
   openSwap,filterSwap,doSwap,setSwapFilter,renderSwapChips,
   swipeStart,swipeMove,swipeEnd,deleteWorkout,showDetail,reopenWorkout,
-  updateStrengthChart,filterPRs,setPRDay,
+  updateStrengthChart,filterStrSearch,openStrDropdown,selectStrExercise,clearStrExercise,filterPRs,setPRDay,
   renderBank,setBankFilter,filterBank,openAddEx,saveNewEx,
   closeOv
 };
