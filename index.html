@@ -316,6 +316,28 @@ canvas{width:100%!important;}
 .empty-state svg{width:36px;height:36px;stroke:currentColor;fill:none;stroke-width:1.5;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;}
 .empty-state p{font-size:14px;}
 
+/* ── PROGRAM BUILDER ── */
+.pb-step-hd{padding:18px 16px 6px;font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}
+.pb-step-sub{padding:0 16px 14px;font-size:13px;color:var(--text3);line-height:1.5;}
+.pb-template-card{margin:0 16px 10px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:14px 16px;cursor:pointer;transition:border-color .15s;}
+.pb-template-card.selected{border-color:var(--accent);}
+.pb-template-card:active{opacity:.8;}
+.pb-template-name{font-size:15px;font-weight:800;}
+.pb-template-meta{font-size:12px;color:var(--text3);margin-top:3px;}
+.pb-template-warn{font-size:11px;color:var(--orange);font-weight:700;margin-top:5px;}
+.pb-day-toggle{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 16px 16px;}
+.pb-day-pill{padding:10px 4px;text-align:center;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r-xs);cursor:pointer;transition:all .15s;}
+.pb-day-pill.on{background:var(--accent-bg);border-color:var(--accent);}
+.pb-day-pill-name{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;}
+.pb-day-pill.on .pb-day-pill-name{color:var(--accent);}
+.pb-day-card{margin:0 16px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.pb-day-card-hd{padding:12px 14px;display:flex;align-items:center;gap:10px;background:var(--bg3);border-bottom:1px solid var(--border);}
+.pb-day-card-name{font-size:14px;font-weight:800;flex:1;}
+.pb-ex-row{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px;}
+.pb-ex-row:last-child{border-bottom:none;}
+.pb-ex-name{flex:1;font-size:13px;font-weight:600;}
+.pb-ex-del{color:var(--red);background:none;border:none;font-size:18px;cursor:pointer;padding:0;line-height:1;}
+
 /* ── PROFILE ── */
 .profile-header{padding:20px 20px 0;display:flex;align-items:center;gap:14px;}
 .profile-avatar-lg{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:#fff;flex-shrink:0;}
@@ -673,7 +695,7 @@ function showUpdateBanner(worker){
 <script>
 const App = (function(){
 
-const APP_VERSION = '0.9.7';
+const APP_VERSION = '1.0.0';
 
 // ── SPLIT ─────────────────────────────────────────────────────────────
 const DEFAULT_SPLIT = {
@@ -2073,6 +2095,13 @@ function renderSettings(){
           </div>
           <button onclick="App.openSchedule()" style="padding:8px 16px;background:var(--accent);color:var(--hi-text);border-radius:var(--r-xs);font-size:13px;font-weight:700;flex-shrink:0;">Edit</button>
         </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-lbl">Program Builder</div>
+            <div class="setting-sub">Start from a template or build from scratch</div>
+          </div>
+          <button onclick="App.openProgramBuilder()" style="padding:8px 16px;background:var(--accent);color:var(--hi-text);border-radius:var(--r-xs);font-size:13px;font-weight:700;flex-shrink:0;">Build</button>
+        </div>
       </div>
     </div>
     <div class="settings-sec">
@@ -2417,11 +2446,18 @@ async function renderSocial(){
       const users = await sbFetch(`users?id=in.(${friendIds.join(',')})`  + `&select=id,username`);
       // get their recent workouts
       for(const u of (users||[])){
-        const wks = await sbFetch(`workouts?user_id=eq.${u.id}&select=data,logged_at&order=logged_at.desc&limit=10`);
-        // fetch their profile data too
+        const wks = await sbFetch(`workouts?user_id=eq.${u.id}&select=data,logged_at&order=logged_at.desc&limit=50`);
+        // deduplicate by date
+        const seen=new Set();
+        const deduped=(wks||[]).map(r=>r.data).filter(w=>{
+          if(!w) return false;
+          const key=new Date(w.date).toDateString();
+          if(seen.has(key)) return false;
+          seen.add(key); return true;
+        });
         const profileRow = await sbFetch(`users?id=eq.${u.id}&select=profile`).catch(()=>[]);
         const profile = (profileRow&&profileRow[0]&&profileRow[0].profile)||{};
-        friendsData.push({ ...u, workouts: (wks||[]).map(r=>r.data), profile });
+        friendsData.push({ ...u, workouts: deduped, profile });
       }
     }
 
@@ -2442,15 +2478,14 @@ async function renderSocial(){
         </div>`;
     }
 
-    // friends feed
+    // friends feed — only most recent workout per friend
     let feedHTML = '';
     if(friendsData.length){
       const lastWeekCutoff = new Date(); lastWeekCutoff.setDate(lastWeekCutoff.getDate()-7);
       const allEntries = [];
       friendsData.forEach(friend=>{
-        (friend.workouts||[]).forEach(w=>{
-          allEntries.push({ ...w, _username: friend.username, _userId: friend.id });
-        });
+        const wks=friend.workouts||[];
+        if(wks.length) allEntries.push({ ...wks[0], _username: friend.username, _userId: friend.id });
       });
       allEntries.sort((a,b)=>new Date(b.date)-new Date(a.date));
 
@@ -3397,6 +3432,380 @@ function saveSchedule(){
 }
 
 
+// ── PROGRAM BUILDER ───────────────────────────────────────────────────
+
+const PROGRAM_TEMPLATES = [
+  {
+    id: 'cartersway',
+    name: "Carter's Way",
+    desc: '4 days · Chest/Shoulders/Tris · Legs · Back/Bis · Legs',
+    sessions: [
+      { name:'Monday',    focus:'Chest, Shoulders & Triceps', tag:'chest',
+        exercises:['Inline Smith Machine Press','Dips','Tricep Pushdowns','Shoulder Machine Press','Chest Flys','Machine Lateral Raise'] },
+      { name:'Wednesday', focus:'Legs — Glute Focus',         tag:'legs',
+        exercises:['Hip Thrust - Glute Bias','Glute Step Down (vertical shin)','Knee Extension | Single Leg (Machine)'] },
+      { name:'Friday',    focus:'Back & Biceps',              tag:'back',
+        exercises:['Roman Chair Hypers',"Roman Chair Core (flexion, twists, iso's)",'T-Bar Rows','High to Low Rows','Hammer Curls','Preacher Curls'] },
+      { name:'Saturday',  focus:'Legs — Strength & Conditioning', tag:'legs',
+        exercises:['Knee Extension | Single Leg (Machine)','Knee Flexion Machine | Single Leg','Hamstring Bias RDL - Single Leg DB','Heavy Calf Raises Single Leg','Bulgarian and/or Front Foot Elevated Split Squats'] },
+    ]
+  },
+  {
+    id: 'ppl',
+    name: 'Push / Pull / Legs',
+    desc: '6 days · Classic PPL split',
+    sessions: [
+      { name:'Push A',  focus:'Chest, Shoulders & Triceps', tag:'chest',
+        exercises:['Flat Barbell Bench Press','Incline Dumbbell Press','Shoulder Machine Press','Dips','Tricep Pushdowns','Machine Lateral Raise'] },
+      { name:'Pull A',  focus:'Back & Biceps', tag:'back',
+        exercises:['Barbell Row','Lat Pulldown','Seated Cable Row','Face Pulls','Barbell Curl','Hammer Curls'] },
+      { name:'Legs A',  focus:'Legs — Quad Focus', tag:'legs',
+        exercises:['Barbell Back Squat','Leg Press','Leg Extension (Machine)','Lying Leg Curl','Standing Calf Raise'] },
+      { name:'Push B',  focus:'Shoulders & Chest', tag:'chest',
+        exercises:['Barbell Overhead Press','Incline Barbell Press','Machine Lateral Raise','Cable Lateral Raise','Tricep Pushdowns','Chest Flys'] },
+      { name:'Pull B',  focus:'Back & Biceps', tag:'back',
+        exercises:['Deadlift','Pull-Ups','T-Bar Rows','Cable Row','Preacher Curls','Incline Dumbbell Curl'] },
+      { name:'Legs B',  focus:'Legs — Hamstring Focus', tag:'legs',
+        exercises:['Romanian Deadlift','Bulgarian and/or Front Foot Elevated Split Squats','Hamstring Curl (Machine)','Leg Extension (Machine)','Heavy Calf Raises Single Leg'] },
+    ]
+  },
+  {
+    id: 'upperlower',
+    name: 'Upper / Lower',
+    desc: '4 days · Strength-focused upper/lower',
+    sessions: [
+      { name:'Upper A', focus:'Upper Body — Push Focus', tag:'chest',
+        exercises:['Flat Barbell Bench Press','Barbell Overhead Press','Incline Dumbbell Press','Tricep Pushdowns','Machine Lateral Raise'] },
+      { name:'Lower A', focus:'Lower Body — Squat Focus', tag:'legs',
+        exercises:['Barbell Back Squat','Leg Press','Leg Extension (Machine)','Lying Leg Curl','Standing Calf Raise'] },
+      { name:'Upper B', focus:'Upper Body — Pull Focus', tag:'back',
+        exercises:['Barbell Row','Lat Pulldown','Seated Cable Row','Hammer Curls','Preacher Curls','Face Pulls'] },
+      { name:'Lower B', focus:'Lower Body — Hinge Focus', tag:'legs',
+        exercises:['Romanian Deadlift','Hip Thrust - Glute Bias','Hamstring Curl (Machine)','Bulgarian and/or Front Foot Elevated Split Squats','Heavy Calf Raises Single Leg'] },
+    ]
+  },
+  {
+    id: 'fullbody',
+    name: 'Full Body 3×',
+    desc: '3 days · Mon/Wed/Fri full body',
+    sessions: [
+      { name:'Full Body A', focus:'Full Body — Squat Pattern', tag:'full',
+        exercises:['Barbell Back Squat','Flat Barbell Bench Press','Barbell Row','Barbell Overhead Press','Romanian Deadlift','Plank'] },
+      { name:'Full Body B', focus:'Full Body — Hinge Pattern', tag:'full',
+        exercises:['Deadlift','Incline Dumbbell Press','Pull-Ups','Dips','Leg Press','Ab Wheel Rollout'] },
+      { name:'Full Body C', focus:'Full Body — Unilateral', tag:'full',
+        exercises:['Bulgarian and/or Front Foot Elevated Split Squats','Dumbbell Bench Press','Single Arm Cable Row','Barbell Overhead Press','Single Leg RDL','Hanging Leg Raise'] },
+    ]
+  },
+  {
+    id: 'brosplit',
+    name: 'Bro Split',
+    desc: '5 days · Classic bodybuilder split',
+    sessions: [
+      { name:'Chest Day',     focus:'Chest', tag:'chest',
+        exercises:['Flat Barbell Bench Press','Incline Dumbbell Press','Decline Barbell Press','Cable Crossovers','Chest Flys','Dips'] },
+      { name:'Back Day',      focus:'Back', tag:'back',
+        exercises:['Deadlift','Barbell Row','Lat Pulldown','Seated Cable Row','T-Bar Rows','Face Pulls'] },
+      { name:'Shoulders Day', focus:'Shoulders', tag:'shoulders',
+        exercises:['Barbell Overhead Press','Dumbbell Shoulder Press','Machine Lateral Raise','Cable Lateral Raise','Rear Delt Fly','Shrugs'] },
+      { name:'Arms Day',      focus:'Biceps & Triceps', tag:'arms',
+        exercises:['Barbell Curl','Preacher Curls','Hammer Curls','Tricep Pushdowns','Skull Crushers','Overhead Tricep Extension'] },
+      { name:'Legs Day',      focus:'Legs', tag:'legs',
+        exercises:['Barbell Back Squat','Leg Press','Romanian Deadlift','Leg Extension (Machine)','Hamstring Curl (Machine)','Standing Calf Raise'] },
+    ]
+  },
+  {
+    id: 'arnold',
+    name: 'Arnold Split',
+    desc: '3 days × 2 · Chest+Back / Shoulders+Arms / Legs',
+    sessions: [
+      { name:'Chest & Back',      focus:'Chest & Back', tag:'chest',
+        exercises:['Flat Barbell Bench Press','Barbell Row','Incline Dumbbell Press','Pull-Ups','Cable Crossovers','Seated Cable Row'] },
+      { name:'Shoulders & Arms',  focus:'Shoulders, Biceps & Triceps', tag:'shoulders',
+        exercises:['Barbell Overhead Press','Barbell Curl','Dumbbell Shoulder Press','Hammer Curls','Machine Lateral Raise','Tricep Pushdowns'] },
+      { name:'Legs',              focus:'Legs', tag:'legs',
+        exercises:['Barbell Back Squat','Romanian Deadlift','Leg Press','Leg Extension (Machine)','Hamstring Curl (Machine)','Standing Calf Raise'] },
+    ]
+  },
+  {
+    id: 'scratch',
+    name: 'Build from Scratch',
+    desc: 'Design your own program day by day',
+    sessions: []
+  },
+];
+
+// PB state
+let _pb = {
+  step: 0,          // 0=choose template, 1=pick days, 2=build days, 3=review
+  templateId: null,
+  activeDays: [],   // array of 0-6 dow values
+  sessions: [],     // array of {dow, name, focus, tag, exercises:[]}
+  editDayIdx: null,
+  exFilter: 'All',
+};
+
+function openProgramBuilder(){
+  _pb = { step:0, templateId:null, activeDays:[], sessions:[], editDayIdx:null, exFilter:'All' };
+  _pbRender();
+  document.getElementById('ov-program-builder').classList.add('open');
+}
+
+function _pbRender(){
+  const title = document.getElementById('pb-title');
+  const body  = document.getElementById('pb-body');
+  const nextBtn = document.getElementById('pb-next-btn');
+  const saveBtn = document.getElementById('pb-save-btn');
+
+  nextBtn.style.display='none'; saveBtn.style.display='none';
+
+  if(_pb.step===0) _pbRenderStep0(title,body,nextBtn);
+  else if(_pb.step===1) _pbRenderStep1(title,body,nextBtn);
+  else if(_pb.step===2) _pbRenderStep2(title,body,saveBtn);
+}
+
+function _pbRenderStep0(title,body,nextBtn){
+  title.textContent='Choose Program';
+  nextBtn.style.display='inline-flex'; nextBtn.textContent='Next →';
+  const tmplHTML = PROGRAM_TEMPLATES.map(t=>`
+    <div class="pb-template-card${_pb.templateId===t.id?' selected':''}" onclick="App._pbSelectTemplate('${t.id}')">
+      <div class="pb-template-name">${t.name}</div>
+      <div class="pb-template-meta">${t.desc}</div>
+    </div>`).join('');
+
+  // show saved custom preset if exists
+  const custom = localStorage.getItem('il_custom_program');
+  const customCard = custom ? `
+    <div class="pb-template-card${_pb.templateId==='_custom'?' selected':''}" onclick="App._pbSelectTemplate('_custom')">
+      <div class="pb-template-name">My Custom Program</div>
+      <div class="pb-template-meta">Previously saved custom split</div>
+    </div>` : '';
+
+  body.innerHTML = `
+    <div class="pb-step-hd">Choose a Template</div>
+    <div class="pb-step-sub">Select a preset program or build your own from scratch.</div>
+    ${customCard}${tmplHTML}`;
+}
+
+function _pbSelectTemplate(id){
+  _pb.templateId=id;
+  _pbRender();
+}
+
+function _pbRenderStep1(title,body,nextBtn){
+  title.textContent='Pick Your Days';
+  nextBtn.style.display='inline-flex'; nextBtn.textContent='Next →';
+  const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const pills=DOW.map((d,i)=>`
+    <div class="pb-day-pill${_pb.activeDays.includes(i)?' on':''}" onclick="App._pbToggleDay(${i})">
+      <div class="pb-day-pill-name">${d}</div>
+    </div>`).join('');
+
+  // template session count
+  let tSessions=0;
+  if(_pb.templateId==='_custom'){
+    try{ const c=JSON.parse(localStorage.getItem('il_custom_program')||'{}'); tSessions=Object.keys(c).length; }catch(e){}
+  } else if(_pb.templateId!=='scratch'){
+    const t=PROGRAM_TEMPLATES.find(t=>t.id===_pb.templateId);
+    if(t) tSessions=t.sessions.length;
+  }
+
+  const warnHTML = tSessions>0&&_pb.activeDays.length>0&&_pb.activeDays.length!==tSessions
+    ? `<div style="margin:0 16px 12px;padding:10px 14px;background:var(--orange-bg,#fff3e0);border:1px solid var(--orange);border-radius:var(--r-xs);font-size:12px;font-weight:700;color:var(--orange);">
+        ⚠️ ${_pb.templateId} has ${tSessions} sessions but you selected ${_pb.activeDays.length} days — sessions will be adapted.
+      </div>` : '';
+
+  body.innerHTML=`
+    <div class="pb-step-hd">Select Active Days</div>
+    <div class="pb-step-sub">Tap the days you plan to work out. Rest days will be assigned automatically.</div>
+    <div class="pb-day-toggle">${pills}</div>
+    ${warnHTML}
+    <div style="padding:0 16px;font-size:13px;color:var(--text3);">${_pb.activeDays.length} day${_pb.activeDays.length!==1?'s':''} selected</div>`;
+}
+
+function _pbToggleDay(dow){
+  const idx=_pb.activeDays.indexOf(dow);
+  if(idx>=0) _pb.activeDays.splice(idx,1);
+  else _pb.activeDays.push(dow);
+  _pb.activeDays.sort((a,b)=>a-b);
+  _pbRender();
+}
+
+function _pbRenderStep2(title,body,saveBtn){
+  title.textContent=_pb.templateId==='scratch'?'Build Your Program':'Review & Edit';
+  saveBtn.style.display='inline-flex';
+
+  // build sessions if not already built
+  if(!_pb.sessions.length) _pbBuildSessions();
+
+  const DOW_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayCards=_pb.sessions.map((s,si)=>`
+    <div class="pb-day-card" id="pb-dc-${si}">
+      <div class="pb-day-card-hd">
+        <div class="pb-day-card-name">${DOW_NAMES[s.dow]} — ${s.name}</div>
+        <button onclick="App._pbEditDayMeta(${si})" style="font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--r-xs);padding:3px 8px;cursor:pointer;">✏️ Edit</button>
+      </div>
+      <div class="pb-ex-list-${si}">
+        ${s.exercises.map((ex,ei)=>`
+          <div class="pb-ex-row">
+            <span class="pb-ex-name">${ex}</span>
+            <button class="pb-ex-del" onclick="App._pbDelEx(${si},${ei})">×</button>
+          </div>`).join('')}
+        <div style="padding:8px 14px;">
+          <button onclick="App._pbOpenAddEx(${si})" style="font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);border-radius:var(--r-xs);padding:5px 10px;cursor:pointer;">+ Add Exercise</button>
+        </div>
+      </div>
+    </div>`).join('');
+
+  body.innerHTML=`
+    <div class="pb-step-hd">Your Program</div>
+    <div class="pb-step-sub">Review exercises for each day. Tap + Add Exercise or × to customise.</div>
+    ${dayCards}`;
+}
+
+function _pbBuildSessions(){
+  const days=_pb.activeDays;
+  if(!days.length) return;
+
+  let templateSessions=[];
+  if(_pb.templateId==='scratch'){
+    days.forEach(dow=>{ templateSessions.push({dow,name:'Workout',focus:'',tag:'full',exercises:[]}); });
+    _pb.sessions=templateSessions; return;
+  }
+  if(_pb.templateId==='_custom'){
+    try{
+      const c=JSON.parse(localStorage.getItem('il_custom_program')||'{}');
+      templateSessions=Object.values(c);
+    }catch(e){}
+  } else {
+    const t=PROGRAM_TEMPLATES.find(t=>t.id===_pb.templateId);
+    if(t) templateSessions=[...t.sessions];
+  }
+
+  // adapt sessions to selected days
+  _pb.sessions=days.map((dow,i)=>{
+    const src=templateSessions[i%templateSessions.length]||{name:'Workout',focus:'',tag:'full',exercises:[]};
+    return { dow, name:src.name, focus:src.focus, tag:src.tag, exercises:[...(src.exercises||[])] };
+  });
+}
+
+function _pbEditDayMeta(si){
+  _pb.editDayIdx=si;
+  const s=_pb.sessions[si];
+  const DOW_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  // show a small inline edit area
+  const card=document.getElementById('pb-dc-'+si);
+  if(!card) return;
+  const hd=card.querySelector('.pb-day-card-hd');
+  hd.innerHTML=`
+    <input id="pb-edit-name-${si}" value="${s.name}" placeholder="Session name"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:5px 8px;font-size:13px;font-weight:700;color:var(--text);outline:none;"/>
+    <select id="pb-edit-tag-${si}" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:5px 8px;font-size:12px;color:var(--text);outline:none;">
+      ${['chest','back','legs','shoulders','arms','full'].map(t=>`<option value="${t}"${s.tag===t?' selected':''}>${t}</option>`).join('')}
+    </select>
+    <button onclick="App._pbSaveDayMeta(${si})" style="font-size:11px;font-weight:700;color:var(--hi-text);background:var(--accent);border:none;border-radius:var(--r-xs);padding:5px 10px;cursor:pointer;">✓</button>`;
+}
+
+function _pbSaveDayMeta(si){
+  const name=document.getElementById('pb-edit-name-'+si)?.value.trim()||_pb.sessions[si].name;
+  const tag=document.getElementById('pb-edit-tag-'+si)?.value||_pb.sessions[si].tag;
+  _pb.sessions[si].name=name; _pb.sessions[si].tag=tag; _pb.sessions[si].focus=name;
+  _pbRenderStep2(document.getElementById('pb-title'),document.getElementById('pb-body'),document.getElementById('pb-save-btn'));
+}
+
+function _pbDelEx(si,ei){
+  _pb.sessions[si].exercises.splice(ei,1);
+  _pbRenderStep2(document.getElementById('pb-title'),document.getElementById('pb-body'),document.getElementById('pb-save-btn'));
+}
+
+function _pbOpenAddEx(si){
+  _pb.editDayIdx=si; _pb.exFilter='All';
+  document.getElementById('pb-addex-title').textContent='Add to '+_pb.sessions[si].name;
+  document.getElementById('pb-addex-search').value='';
+  _pbRenderExChips();
+  _pbFilterEx('');
+  document.getElementById('ov-pb-addex').classList.add('open');
+}
+
+function _pbRenderExChips(){
+  const muscles=['All','Chest','Shoulders','Triceps','Back','Biceps','Legs','Glutes','Core','Calves','Full Body'];
+  const el=document.getElementById('pb-addex-chips');
+  if(el) el.innerHTML=muscles.map(m=>`<div class="chip${m===_pb.exFilter?' active':''}" onclick="App._pbSetExFilter('${m}')">${m}</div>`).join('');
+}
+function _pbSetExFilter(m){ _pb.exFilter=m; _pbRenderExChips(); _pbFilterEx(document.getElementById('pb-addex-search')?.value||''); }
+function pbFilterEx(q){ _pbFilterEx(q); }
+function _pbFilterEx(q){
+  const si=_pb.editDayIdx; if(si==null) return;
+  const already=new Set(_pb.sessions[si].exercises);
+  const bank=getBank();
+  let f=bank.filter(e=>{
+    const mM=_pb.exFilter==='All'||e.muscle===_pb.exFilter;
+    const qM=!q||e.name.toLowerCase().includes(q.toLowerCase());
+    return mM&&qM&&!already.has(e.name);
+  });
+  const list=document.getElementById('pb-addex-list');
+  if(!list) return;
+  if(!f.length){ list.innerHTML='<div class="empty-state"><p>No exercises found.</p></div>'; return; }
+  list.innerHTML=f.map(e=>`
+    <div class="afb-item" onclick="App._pbAddEx('${e.name.replace(/'/g,"\\'")}')">
+      <div><div class="bi-name">${e.name}</div><div class="bi-sub">${e.muscle}</div></div>
+      <div class="afb-add">+</div>
+    </div>`).join('');
+}
+
+function _pbAddEx(name){
+  const si=_pb.editDayIdx; if(si==null) return;
+  if(!_pb.sessions[si].exercises.includes(name)) _pb.sessions[si].exercises.push(name);
+  _pbFilterEx(document.getElementById('pb-addex-search')?.value||'');
+}
+
+function pbNext(){
+  if(_pb.step===0){
+    if(!_pb.templateId){ alert('Please select a program.'); return; }
+    if(_pb.templateId==='scratch'){ _pb.step=1; _pbRender(); return; }
+    _pb.step=1; _pbRender();
+  } else if(_pb.step===1){
+    if(!_pb.activeDays.length){ alert('Please select at least 1 day.'); return; }
+    _pb.sessions=[];
+    _pb.step=2; _pbRender();
+  }
+}
+
+function pbBack(){
+  if(_pb.step===0){ closeOv('ov-program-builder'); return; }
+  _pb.step--; _pb.sessions=[];
+  _pbRender();
+}
+
+function pbSave(){
+  if(!_pb.sessions.length){ alert('No sessions to save.'); return; }
+
+  // save current program as "custom" preset before replacing
+  const existing=getSplit();
+  const hasCustom=Object.keys(existing).length>0;
+  if(hasCustom){
+    // only save as custom if it differs from the selected template's output
+    localStorage.setItem('il_custom_program', JSON.stringify(existing));
+  }
+
+  // build new split
+  const newSplit={};
+  _pb.sessions.forEach(s=>{
+    newSplit[s.dow]={ name:s.name, focus:s.focus||s.name, tag:s.tag, exercises:s.exercises };
+  });
+  saveSplit(newSplit);
+
+  // reset today
+  S.todayExs=[]; S.todaySets={}; S.exUnits={}; S.cardioItems=[]; S._lastLogDow=-1;
+  clearWIP();
+
+  closeOv('ov-pb-addex');
+  closeOv('ov-program-builder');
+  renderToday();
+  renderSettings();
+  alert('Program applied! Your previous program has been saved as "My Custom Program" in the builder.');
+}
+
 // ── NAME ──────────────────────────────────────────────────────────────
 function saveName(v){ localStorage.setItem('il_name', v.trim()); }
 function getUserName(){ return localStorage.getItem('il_name')||'Lifter'; }
@@ -3639,6 +4048,7 @@ function generatePDF(weekStartTs){
 
 return {
   nav,toggleTheme,toggleThemeChk,setUnit,setDistUnit,goToBW,logBW,logBWProgress,deleteBW,deleteBWProgress,exportBackup,restoreAutoBackup,importBackup,saveName,openWeekPicker,generatePDF,doSwapByIdx,addFromBankIdx,openAuthOverlay,switchAuthTab,doLogin,doRegister,doLogout,doSync,renderSocial,openAddFriend,searchFriend,sendFriendReq,acceptFriend,showFriendWorkout,toggleLike,openFriendProfile,openMyProfile,openEditProfile,saveProfile,_editSelectColour,_editToggleMs,_editTogglePR,shiftWeek,browseDay,returnToToday,openSchedule,renderScheduleList,schedDragStart,schedDragOver,schedDrop,schedDragEnd,toggleSchedDay,openEditDay,saveEditDay,saveSchedule,renderMilestones,openMilestoneTiers,toggleHistorySection,
+  openProgramBuilder,_pbSelectTemplate,_pbToggleDay,pbNext,pbBack,pbSave,_pbEditDayMeta,_pbSaveDayMeta,_pbDelEx,_pbOpenAddEx,_pbSetExFilter,pbFilterEx,_pbAddEx,
   renderToday,updSet,toggleDone,addSet,delSet,setExUnit,logWorkout,removeExCard,
   addCardioItem,updCardio,toggleCardioDone,removeCardioItem,
   openAFB,filterAFB,addFromBank,setAFBFilter,openAddExFromAFB,openAddExFromSwap,
@@ -3689,6 +4099,38 @@ return {
       <div id="fp-username" style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;">Profile</div>
     </div>
     <div id="fp-body" style="flex:1;overflow-y:auto;padding-bottom:20px;"></div>
+  </div>
+</div>
+
+<!-- PROGRAM BUILDER -->
+<div class="overlay" id="ov-program-builder" style="align-items:stretch;">
+  <div style="background:var(--bg);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:calc(var(--st)+14px) 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+      <button onclick="App.pbBack()" id="pb-back-btn" style="width:32px;height:32px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0;">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="pb-title" style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;">Program Builder</div>
+      <button id="pb-next-btn" onclick="App.pbNext()" style="display:none;font-size:13px;font-weight:700;color:var(--hi-text);background:var(--accent);border:1px solid var(--accent);border-radius:var(--r-xs);padding:6px 14px;cursor:pointer;">Next →</button>
+      <button id="pb-save-btn" onclick="App.pbSave()" style="display:none;font-size:13px;font-weight:700;color:var(--hi-text);background:var(--green);border:none;border-radius:var(--r-xs);padding:6px 14px;cursor:pointer;">✓ Apply</button>
+    </div>
+    <div id="pb-body" style="flex:1;overflow-y:auto;padding-bottom:32px;"></div>
+  </div>
+</div>
+
+<!-- PROGRAM BUILDER — ADD EXERCISE TO DAY SHEET -->
+<div class="overlay" id="ov-pb-addex">
+  <div class="sheet" style="max-height:92vh;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="pb-addex-title">Add Exercise</div>
+    <div class="search-wrap" style="margin:10px 16px 0;">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="pb-addex-search" placeholder="Search exercises..." oninput="App.pbFilterEx(this.value)"/>
+    </div>
+    <div class="chips" id="pb-addex-chips" style="padding:8px 16px 0;"></div>
+    <div id="pb-addex-list" style="margin-top:6px;"></div>
+    <div style="padding:8px 20px 4px;">
+      <button class="sheet-cancel" onclick="App.closeOv('ov-pb-addex')">Done</button>
+    </div>
   </div>
 </div>
 
